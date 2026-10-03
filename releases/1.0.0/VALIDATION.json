@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "english_distribution": {
+    "tests_discovered": 196,
+    "passed": 196,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "dependency_check": "passed",
+    "shell_syntax": "passed",
+    "systemd_unit_syntax": "passed with local paths substituted",
+    "live_discord": "not run",
+    "production_vps_installation": "not run",
+    "documentation_language": "English"
+  }
+}
