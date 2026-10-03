@@ -1,0 +1,40 @@
+[Unit]
+Description=Rip Cars Raffle
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=ripcarsraffle
+Group=ripcarsraffle
+SupplementaryGroups=ripcars-bots
+WorkingDirectory=/opt/ripcars-raffle/current
+EnvironmentFile=/etc/ripcars-raffle.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStartPre=/opt/ripcars-raffle/current/.venv/bin/python /opt/ripcars-raffle/current/scripts/preflight.py --deployment
+ExecStart=/opt/ripcars-raffle/current/.venv/bin/python -u /opt/ripcars-raffle/current/main.py
+Restart=on-failure
+RestartSec=8
+WatchdogSec=90
+TimeoutStartSec=180
+TimeoutStopSec=60
+KillSignal=SIGINT
+UMask=0007
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/ripcars-raffle /var/lib/ripcars-bots
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

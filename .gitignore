@@ -1,0 +1,31 @@
+# Runtime credentials and local configuration.
+.env
+.env.*
+!.env.example
+
+# Local environments and Python caches.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime records, logs and backups.
+data/
+backups/
+logs/
+*.log
+*.sqlite*
+*.db
+*.db-*
+
+# Local editor and operating-system files.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Keep historical non-English guides outside this English repository.
+*_FA.md
