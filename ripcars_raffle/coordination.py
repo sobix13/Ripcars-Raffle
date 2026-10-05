@@ -1,8 +1,7 @@
 """Shared registry reads; only our own message keys are written."""
 from __future__ import annotations
 
-import secrets
-import time
+import ripcars_coordination as protocol
 from contextlib import asynccontextmanager
 
 from .config import canonical
@@ -17,30 +16,27 @@ CREATE TABLE IF NOT EXISTS locks(guild INTEGER NOT NULL,name TEXT NOT NULL,token
 class Registry(SQLite):
     async def open(self):
         await self.initialize(SCHEMA)
+        await self.run(lambda c:protocol.initialize(c,Conflict))
+        protocol.shared_permissions(self.path)
 
     async def resources(self, guild):
         return {r["key"]: r for r in await self.query("SELECT * FROM resources WHERE guild=?", (guild,))}
 
     @asynccontextmanager
     async def lease(self, guild):
-        token = secrets.token_hex(16)
-        def acquire(c):
-            r = c.execute("SELECT * FROM locks WHERE guild=? AND name='server-setup'", (guild,)).fetchone()
-            if r and r["expires"] > time.time():
-                raise Conflict("Gate or Crew is updating this server. Retry after that setup finishes.")
-            c.execute("INSERT OR REPLACE INTO locks VALUES(?,'server-setup',?,?)", (guild, token, time.time()+120))
-        await self.run(acquire)
+        token=await self.run(lambda c:protocol.claim(c,guild,error=Conflict))
         try:
             yield token
         finally:
-            await self.execute("DELETE FROM locks WHERE guild=? AND name='server-setup' AND token=?", (guild, token))
+            await self.run(lambda c:protocol.release(c,guild,'server-setup',token))
 
     async def record(self, guild, rid, message, bot_id, contract_hash):
-        async with self.lease(guild):
+        async with self.lease(guild) as token:
             key = f"raffle:message:{bot_id}:{rid}"
             owner = f"bot:{bot_id}"
             baseline = canonical({"raffle": rid, "contract_hash": contract_hash})
             def put(c):
+                protocol.ensure(c,guild,'server-setup',token,error=Conflict)
                 old = c.execute("SELECT * FROM resources WHERE guild=? AND key=?", (guild, key)).fetchone()
                 if old and (old["owner"] != owner or old["object_id"] != message or old["state"]!="active" or old["baseline"]!=baseline or old["desired"]!=baseline):
                     raise Conflict("A foreign registry binding was preserved.")
