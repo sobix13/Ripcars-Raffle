@@ -1,5 +1,6 @@
 import asyncio
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock,patch
 
 import discord
@@ -11,7 +12,7 @@ from tests.fakes import AsyncCase
 
 
 class BootTests(AsyncCase):
-    async def test_version(self):self.assertEqual(__version__,"1.0.0")
+    async def test_version(self):self.assertEqual(__version__,(Path(__file__).resolve().parents[1]/'VERSION').read_text().strip())
     async def test_only_guild_and_members_intents(self):
         self.assertEqual(self.bot.intents.value,discord.Intents(guilds=True,members=True).value)
         self.assertFalse(self.bot.intents.message_content)
