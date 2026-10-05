@@ -1,6 +1,6 @@
 # Install Rip Cars Raffle on the VPS
 
-Version 1.0.0 is a new independent bot. Gate and Crew remain separate. Code lives under `/opt/ripcars-raffle`, while the service runs as restricted user `ripcarsraffle`. If the package was uploaded to `/root`, change only the archive source path; runtime installation remains under `/opt`.
+Version 1.0.1 is a new independent bot. Gate and Crew remain separate. Code lives under `/opt/ripcars-raffle`, while the service runs as restricted user `ripcarsraffle`. If the package was uploaded to `/root`, change only the archive source path; runtime installation remains under `/opt`.
 
 TAR is the VPS installation package. ZIP contains the same source for Windows inspection. No database, token or virtual environment is bundled. Offline tests are complete; live VPS and Discord acceptance checks follow below.
 
@@ -53,9 +53,9 @@ In PowerShell:
 ```powershell
 $RipCarsVps = Read-Host 'VPS IP or your existing SSH host alias'
 Set-Location 'C:\Users\macbook\Desktop\files'
-Get-FileHash '.\ripcars-raffle-1.0.0.tar.gz' -Algorithm SHA256
-Get-FileHash '.\ripcars-raffle-1.0.0.zip' -Algorithm SHA256
-scp '.\ripcars-raffle-1.0.0.tar.gz' '.\ripcars-raffle-1.0.0.zip' '.\RIPCARS_RAFFLE_SHA256SUMS.txt' "memecult@${RipCarsVps}:/tmp/"
+Get-FileHash '.\ripcars-raffle-1.0.1.tar.gz' -Algorithm SHA256
+Get-FileHash '.\ripcars-raffle-1.0.1.zip' -Algorithm SHA256
+scp '.\ripcars-raffle-1.0.1.tar.gz' '.\ripcars-raffle-1.0.1.zip' '.\RIPCARS_RAFFLE_SHA256SUMS.txt' "memecult@${RipCarsVps}:/tmp/"
 ssh "memecult@${RipCarsVps}"
 ```
 
@@ -84,7 +84,7 @@ sudo apt-get install -y python3 python3-venv python3-pip ca-certificates util-li
 
 ```bash
 RIPCARS_RAFFLE_STAGE="$(mktemp -d /tmp/ripcars-raffle-install.XXXXXX)"
-tar -xzf /tmp/ripcars-raffle-1.0.0.tar.gz -C "$RIPCARS_RAFFLE_STAGE"
+tar -xzf /tmp/ripcars-raffle-1.0.1.tar.gz -C "$RIPCARS_RAFFLE_STAGE"
 sudo bash "$RIPCARS_RAFFLE_STAGE/ripcars-raffle/scripts/install.sh" "$RIPCARS_RAFFLE_STAGE/ripcars-raffle"
 ```
 
@@ -117,7 +117,7 @@ sudo systemctl status ripcars-raffle --no-pager -l
 sudo journalctl -u ripcars-raffle --since '5 minutes ago' --no-pager -l
 ```
 
-Look for `online as` and version `1.0.0`. A Privileged Intent failure requires Server Members Intent on this application. Being online does not enable raffle entry; it starts disabled.
+Look for `online as` and version `1.0.1`. A Privileged Intent failure requires Server Members Intent on this application. Being online does not enable raffle entry; it starts disabled.
 
 ## 6. Setup inside Discord
 

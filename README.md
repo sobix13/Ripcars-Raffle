@@ -1,10 +1,12 @@
-# Rip Cars Raffle 1.0.0
+# Rip Cars Raffle 1.0.1
 
 A standalone Discord raffle bot for Rip Cars. English public copy, burgundy theme (`#800020`), and `https://app.ripcars.io`. Management stays inside Discord under `/raffle`.
 
 ## Repository contents and downloads
 
-This repository contains the complete 1.0.0 bot source, all 196 offline tests, dependency files, installation and rollback scripts, systemd service, administrative guides and the original release packages.
+This repository contains the complete 1.0.1 bot source, 217 offline tests, dependency files, installation and rollback scripts, systemd service, administrative guides and matching release packages. Previous packages remain available.
+
+Version 1.0.1 fixes shared setup coordination with Gate/Crew/Verifier without changing raffle rules or results. See [SUITE_DEPLOYMENT.md](SUITE_DEPLOYMENT.md) and [SUITE_TEST_RESULTS.txt](SUITE_TEST_RESULTS.txt) for the release matrix and four-process test evidence.
 
 | File or directory | Purpose |
 | --- | --- |
@@ -25,14 +27,14 @@ This repository contains the complete 1.0.0 bot source, all 196 offline tests, d
 | [scripts/verify_draw.py](scripts/verify_draw.py) | Local raffle proof verifier |
 | [tests](tests) | Complete offline test suite |
 
-English install packages and matching delivery documents are available in [releases/1.0.0](releases/1.0.0):
+English install packages and matching delivery documents are available in [releases/1.0.1](releases/1.0.1):
 
-- [ripcars-raffle-1.0.0.tar.gz](releases/1.0.0/ripcars-raffle-1.0.0.tar.gz)
-- [ripcars-raffle-1.0.0.zip](releases/1.0.0/ripcars-raffle-1.0.0.zip)
-- [RIPCARS_RAFFLE_SHA256SUMS.txt](releases/1.0.0/RIPCARS_RAFFLE_SHA256SUMS.txt)
-- [Rip_Cars_Raffle_1.0.0_Deployment_EN.md](releases/1.0.0/Rip_Cars_Raffle_1.0.0_Deployment_EN.md)
-- [Rip_Cars_Raffle_1.0.0_Admin_Guide.md](releases/1.0.0/Rip_Cars_Raffle_1.0.0_Admin_Guide.md)
-- [Rip_Cars_Raffle_1.0.0_Test_Results.txt](releases/1.0.0/Rip_Cars_Raffle_1.0.0_Test_Results.txt)
+- [ripcars-raffle-1.0.1.tar.gz](releases/1.0.1/ripcars-raffle-1.0.1.tar.gz)
+- [ripcars-raffle-1.0.1.zip](releases/1.0.1/ripcars-raffle-1.0.1.zip)
+- [RIPCARS_RAFFLE_SHA256SUMS.txt](releases/1.0.1/RIPCARS_RAFFLE_SHA256SUMS.txt)
+- [DEPLOYMENT.md](releases/1.0.1/DEPLOYMENT.md)
+- [ADMIN_GUIDE.md](releases/1.0.1/ADMIN_GUIDE.md)
+- [TEST_RESULTS.txt](releases/1.0.1/TEST_RESULTS.txt)
 
 All repository content and files inside these packages are English. Repository additions include navigation, Git file policies, translated deployment documentation and exclusions for Git metadata and bundled releases during installation and future builds. Bot runtime behavior is unchanged.
 

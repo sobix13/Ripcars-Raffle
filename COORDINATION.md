@@ -10,9 +10,13 @@ Use `/var/lib/ripcars-bots/coordination.sqlite3`, exactly the same configured pa
 
 `locks`: guild, name, token, expires. Primary key: guild + name.
 
+Protocol 2 also mirrors `leases`: guild, key, token, expires, the table used by Gate/Crew. Both legacy tables are checked and written atomically. This fixes the prior mismatch; a real Gate/Crew setup now blocks Raffle's registry write. All four repositories ship identical `ripcars_coordination.py`. Object IDs are unique within a guild; conflicting existing bindings stop initialization for explicit review. See [SUITE_DEPLOYMENT.md](SUITE_DEPLOYMENT.md) for the tested versions and rollout.
+
 Read Gate keys `role:rippers` and `channel:gate_log` only when active/pinned/external. Import confirms IDs and pauses new entries. No permission changes or ownership transfer occurs.
 
-Raffle writes only `raffle:message:<bot_user_id>:<raffle_id>` records, kind `message`, owner `bot:<bot_user_id>`. Guild and bot identity prevent independent applications from using the same logical message key. Before writing, acquire Gate/Crew's `server-setup` lease with BEGIN IMMEDIATE and a random 120-second token. Release only the matching token. The message registry operation is short.
+Raffle writes only `raffle:message:<bot_user_id>:<raffle_id>` records, kind `message`, owner `bot:<bot_user_id>`. Guild and bot identity prevent independent applications from using the same logical message key. Before writing, acquire the shared `server-setup` lease with BEGIN IMMEDIATE and a random 180-second token. Recheck the token inside the record transaction and release only matching rows. The message registry operation is short.
+
+Verifier's dedicated qualifying roles can be selected in existing raffle requirements/weights. Claimable notification roles are still rejected as platform/contribution proof. No wallet, deposit or asset ledger is duplicated in Raffle, and Raffle never assigns a Verifier role.
 
 Foreign, changed or non-active bindings are preserved. Temporary lease contention does not republish a message or invalidate a saved result. Missing bindings are retried on a later panel refresh. Existing protected bindings require review and stop display writes.
 
