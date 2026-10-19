@@ -36,6 +36,7 @@ RAFFLE_RELEASE="$RAFFLE_ROOT/releases/$RAFFLE_VERSION-$RAFFLE_STAMP"
 if [ -e "$RAFFLE_RELEASE" ]; then echo "Release exists." >&2; exit 1; fi
 install -d -m 755 "$RAFFLE_RELEASE"
 tar -C "$RAFFLE_SOURCE" --exclude=.venv --exclude=.env --exclude=.git --exclude=releases --exclude=logs --exclude=__pycache__ --exclude=.pytest_cache --exclude=data --exclude=backups --exclude='*.sqlite3*' --exclude='*.db*' -cf - . | tar -C "$RAFFLE_RELEASE" -xf -
+chmod 0755 "$RAFFLE_RELEASE"
 python3 -m venv "$RAFFLE_RELEASE/.venv"
 "$RAFFLE_RELEASE/.venv/bin/python" -m pip install -r "$RAFFLE_RELEASE/requirements-lock.txt"
 PYTHON_BIN="$RAFFLE_RELEASE/.venv/bin/python" bash "$RAFFLE_RELEASE/run_tests.sh"
