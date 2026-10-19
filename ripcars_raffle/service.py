@@ -15,7 +15,7 @@ class Raffles:
         self.bot = bot
 
     async def publish(self, guild, rid, actor):
-        cfg, _ = await self.bot.db.settings(guild.id)
+        cfg, settings_revision = await self.bot.db.settings(guild.id)
         if not cfg["enabled"]:
             raise ValueError("Finish setup and activate raffles first.")
         blockers, _ = await doctor(self.bot, guild, cfg)
@@ -41,7 +41,7 @@ class Raffles:
         if not visible(channel,member_role):
             raise ValueError("Rippers needs View Channel and Read Message History in the selected raffle channel.")
         async with self.bot.db.job(rid, "publish"):
-            r = await self.bot.db.begin_publish(guild.id, rid, channel.id, cfg, actor)
+            r = await self.bot.db.begin_publish(guild.id, rid, channel.id, cfg, actor, draft_revision=r["revision"], settings_revision=settings_revision)
             from .public_ui import public_view, panel_embed
             # Journal before send: network ambiguity never causes automatic republishing.
             message = await channel.send(embed=panel_embed(r, cfg, 0), view=public_view(r, cfg), allowed_mentions=discord.AllowedMentions.none())

@@ -149,12 +149,18 @@ class Store(SQLite):
             self._audit(c, guild, actor, "draft_edited", f"raffle={rid}")
         await self.run(update)
 
-    async def begin_publish(self, guild, rid, channel, cfg, actor, now=None):
+    async def begin_publish(self, guild, rid, channel, cfg, actor, now=None, *, draft_revision=None, settings_revision=None):
         now = time.time() if now is None else now
         def begin(c):
             row = decode(c.execute("SELECT * FROM raffles WHERE guild=? AND id=?", (guild, rid)).fetchone())
             if not row or row["status"] != "draft":
                 raise Conflict("Only an unpublished draft can be published.")
+            if draft_revision is not None and row["revision"] != draft_revision:
+                raise Conflict("Draft changed during publication. Review it again.")
+            if settings_revision is not None:
+                settings = c.execute("SELECT revision FROM settings WHERE guild=?", (guild,)).fetchone()
+                if (settings["revision"] if settings else 0) != settings_revision:
+                    raise Conflict("Settings changed during publication. Reopen the panel.")
             active = c.execute("SELECT COUNT(*) FROM raffles WHERE guild=? AND status IN ('publishing','scheduled','open','closing','review')", (guild,)).fetchone()[0]
             if active >= cfg["max_active"]:
                 raise ValueError("The active raffle limit has been reached.")
