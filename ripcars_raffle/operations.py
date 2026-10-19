@@ -159,7 +159,8 @@ class Reporter:
 async def backup(db, root, keep):
     path = Path(root)
     path.mkdir(parents=True, exist_ok=True)
-    target = path / ("raffle-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime()) + f"-{time.time_ns()%1000000000:09d}.sqlite3")
+    stamp = time.time_ns()
+    target = path / ("raffle-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime(stamp//1000000000)) + f"-{stamp%1000000000:09d}.sqlite3")
     def write():
         with sqlite3.connect(db.path) as source, sqlite3.connect(target) as dest:
             source.backup(dest)
