@@ -21,6 +21,29 @@ class ServiceTests(AsyncCase):
         return r
     async def save_cfg(self,**updates):
         cfg,rev=await self.bot.db.settings(1);cfg.update(updates);await self.bot.db.save(1,cfg,rev,9001)
+    async def test_edit_after_validation_cannot_publish_unreviewed_prize(self):
+        rid=await self.draft()
+        original=self.bot.db.begin_publish
+        async def race(*args,**kwargs):
+            draft=await self.bot.db.get(1,rid)
+            draft["spec"]["prize"]="Describe the prize"
+            await self.bot.db.edit(1,rid,draft["spec"],draft["revision"],9001)
+            return await original(*args,**kwargs)
+        self.bot.db.begin_publish=race
+        with self.assertRaises(Conflict): await self.bot.raffles.publish(self.guild,rid,9001)
+        self.assertEqual(self.guild.public.sent,[])
+        self.assertEqual((await self.bot.db.get(1,rid))["status"],"draft")
+
+    async def test_pause_after_validation_cannot_publish(self):
+        rid=await self.draft()
+        original=self.bot.db.begin_publish
+        async def race(*args,**kwargs):
+            await self.save_cfg(enabled=False)
+            return await original(*args,**kwargs)
+        self.bot.db.begin_publish=race
+        with self.assertRaises(Conflict): await self.bot.raffles.publish(self.guild,rid,9001)
+        self.assertEqual(self.guild.public.sent,[])
+
     async def test_publish_owned_panel_enables_join(self):
         r=await self.published();msg=self.guild.public.messages[r["message"]]
         self.assertFalse(msg.view.children[0].item.disabled)
