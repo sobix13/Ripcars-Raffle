@@ -1,6 +1,8 @@
 # Install Rip Cars Raffle on the VPS
 
-Version 1.0.1 is a new independent bot. Gate and Crew remain separate. Code lives under `/opt/ripcars-raffle`, while the service runs as restricted user `ripcarsraffle`. If the package was uploaded to `/root`, change only the archive source path; runtime installation remains under `/opt`.
+Current source version: 1.1.0. Use the matching Maestro updater for an existing suite; see ROLE_RAFFLES.md. Archive examples below describe the older 1.0.1 delivery. Gate and Crew remain separate.
+
+The bot is independent. Gate and Crew remain separate. Code lives under `/opt/ripcars-raffle`, while the service runs as restricted user `ripcarsraffle`. If the package was uploaded to `/root`, change only the archive source path; runtime installation remains under `/opt`.
 
 TAR is the VPS installation package. ZIP contains the same source for Windows inspection. No database, token or virtual environment is bundled. Offline tests are complete; live VPS and Discord acceptance checks follow below.
 
@@ -27,9 +29,9 @@ Embed Links
 Attach Files
 ```
 
-Administrator, Manage Roles, Manage Channels, Manage Messages, Kick and Ban are not required. The invite permissions integer is `117760`. Channel overwrites still affect access. Doctor checks effective permissions.
+Manage Roles and View Audit Log are required for the 1.1.0 entry role. Administrator, Manage Channels, Manage Messages, Kick and Ban are not required. Including the original channel permissions, the invite permissions integer is `268553344`. Channel overwrites still affect access. Doctor checks effective permissions.
 
-This bot does not create roles or channels. Create a channel such as `raffles` yourself or bind an existing Gate-managed channel. A dedicated raffle channel should use:
+Quick setup creates or explicitly binds one fixed zero-permission Raffle role. This bot does not create channels. Create a channel such as `raffles` yourself or bind an existing Gate-managed channel. A dedicated raffle channel should use:
 
 | Role | View and history | Send text/files/links and create threads |
 | --- | --- | --- |

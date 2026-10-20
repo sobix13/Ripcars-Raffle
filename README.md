@@ -1,10 +1,12 @@
-# Rip Cars Raffle 1.0.1
+# Rip Cars Raffle 1.1.0
+
+Current validation: [240 passing tests and verification limits](VALIDATION_1.1.0.md). Current setup and role lifecycle: [ROLE_RAFFLES.md](ROLE_RAFFLES.md).
 
 A standalone Discord raffle bot for Rip Cars. English public copy, burgundy theme (`#800020`), and `https://app.ripcars.io`. Management stays inside Discord under `/raffle`.
 
 ## Repository contents and downloads
 
-This repository contains the complete 1.0.1 bot source, 217 offline tests, dependency files, installation and rollback scripts, systemd service, administrative guides and matching release packages. Previous packages remain available.
+This repository contains the 1.1.0 source and offline tests. Existing release packages are historical snapshots; install this release from the reviewed source commit. See ROLE_RAFFLES.md for the current workflow and upgrade boundaries.
 
 Version 1.0.1 fixes shared setup coordination with Gate/Crew/Verifier without changing raffle rules or results. See [SUITE_DEPLOYMENT.md](SUITE_DEPLOYMENT.md) and [SUITE_TEST_RESULTS.txt](SUITE_TEST_RESULTS.txt) for the release matrix and four-process test evidence.
 
@@ -27,7 +29,7 @@ Version 1.0.1 fixes shared setup coordination with Gate/Crew/Verifier without ch
 | [scripts/verify_draw.py](scripts/verify_draw.py) | Local raffle proof verifier |
 | [tests](tests) | Complete offline test suite |
 
-English install packages and matching delivery documents are available in [releases/1.0.1](releases/1.0.1):
+Previous 1.0.1 install packages and delivery documents remain available in [releases/1.0.1](releases/1.0.1):
 
 - [ripcars-raffle-1.0.1.tar.gz](releases/1.0.1/ripcars-raffle-1.0.1.tar.gz)
 - [ripcars-raffle-1.0.1.zip](releases/1.0.1/ripcars-raffle-1.0.1.zip)
@@ -60,7 +62,7 @@ The GitHub publication includes code and install files. Offline tests are comple
 | Ripcars Crew | Moderation, scam/word filters, support tickets and staff workflows | Prize instructions can direct winners to an existing ticket system. No ticket is created by Raffle. |
 | Rip Cars Raffle | Campaigns, entry conditions, draws, proof, claims and manual delivery tracking | Own private database, application, token, service and message IDs. |
 
-This release does not create, rename or repair channels, categories or roles. It does not read Gate questionnaire answers. It does not transfer prizes, connect wallets, check token balances, read platform points, score community contributions, count X likes, or award activity credits.
+Quick setup creates or explicitly binds one zero-permission Raffle entry role. The bot assigns and clears only that entry role. It does not create, rename or repair channels or categories. It does not read Gate questionnaire answers. It does not transfer prizes, connect wallets, check token balances, read platform points, score community contributions, count X likes, or award activity credits.
 
 ## Features
 
@@ -68,7 +70,7 @@ This release does not create, rename or repair channels, categories or roles. It
 - Existing Rippers membership required for entry. Platform/contributor campaigns additionally require an independently verified qualifying role.
 - Any-role, all-role, excluded-role and account blocklist conditions.
 - Minimum account/server age, minimum eligible participants, staff exclusion, up to 25 distinct winners.
-- Configurable role weights. `max` avoids stacking tiers. `sum` adds extra tickets with an explicit cap.
+- Editable role ticket presets. New guided raffles add the tickets of selected roles: Rippers 1 + OG 3 = 4. Legacy `max`/`sum` semantics remain unchanged for historical raffles.
 - One entry per Discord account, leave/rejoin, fixed capacity and deadline checks.
 - Immediate or scheduled opening. Deadlines, rules and seed commitment freeze at publication.
 - Live member/role checks at entry and closing. Uncertain API checks stop the draw instead of quietly excluding an entrant.

@@ -24,9 +24,9 @@ Gate's known blueprint, role claims, daily chat controller and Crew's tickets/mo
 
 ## Permissions and responsibility
 
-Raffle does not call create/edit/delete channel/category/role APIs. It never assigns roles, grants permissions to a new bot, registers arbitrary new members as trusted bots, deletes other bots' messages, or changes slowmode/AutoMod. Grant its own channel access manually.
+Raffle creates or explicitly binds one zero-permission entry role, recorded under its own `raffle:entry-role:<bot-id>` registry key. It assigns and clears only that role. It does not create, edit or delete channels/categories, alter qualification roles, delete other bots' messages, or change slowmode/AutoMod. Grant its channel access manually.
 
-Required bot permissions in the selected channels: View Channel, Read Message History, Send Messages, Embed Links and Attach Files. Server Members Intent is used for member checking. Message Content Intent, Administrator, Manage Roles/Channels/Messages, Ban, Kick and Audit Log are unnecessary.
+Required bot permissions in the selected channels: View Channel, Read Message History, Send Messages, Embed Links and Attach Files. Server Members Intent is used for member checking. Manage Roles and View Audit Log are required for the fixed entry role and auditable manual grants. The entry role must remain below the bot. Message Content Intent, Administrator, Manage Channels/Messages, Ban and Kick are unnecessary.
 
 The default invitation permissions do not override a channel deny. Doctor checks effective permissions. Rippers must be able to view/read the raffle channel, but need not send chat there to click buttons.
 

@@ -6,7 +6,17 @@ Server Owner, Administrator or Manage Server can configure the bot. Configured R
 
 Rippers is a prerequisite, not a role that Raffle gives out. OG, contributor tiers, points/$CARS thresholds and car-specific roles are optional existing qualifiers. Their assignment and validation belong to staff or a separately approved verifier.
 
-## Panel sections
+## Everyday workflow
+
+Home has four actions: New raffle, Current raffle, Past raffles and Settings. Finish Settings > Quick setup once to create or choose the fixed Raffle role. Under Ticket defaults, select roles by name and enter their ticket values. Starter weights are a reviewed suggestion, not an automatic change.
+
+Choose allowed roles for each new raffle, enter the prize and time, then preview before publishing. Only selected role tickets add together. Edit tickets for this draft to override its defaults. Choose automatic results or admin approval before publication.
+
+Joining saves one registration and assigns the entry role. A permitted native manual role grant also registers the member before the deadline, recorded with the actor and time; it does not bypass membership, blocklist or staff exclusions. Final checks still use Discord roles, never RPC or a platform API.
+
+After a successful result announcement, the bot clears the entry role in small batches without deleting its ID, public messages, registration counts or history. Pending admin approval or an uncertain send keeps roles in place. More controls includes manual clearing, participants, exclusion, CSV/proof exports and announcement recovery. Older raffles are paginated. Clearing roles does not remove registrations or exclude entrants; use Exclude participant for that.
+
+## Advanced panel sections
 
 | Section | Contents |
 | --- | --- |
@@ -22,7 +32,7 @@ Rippers is a prerequisite, not a role that Raffle gives out. OG, contributor tie
 | Gate coordination | Confirm ID import without handing off resources |
 | Guide | Member/manager usage and boundaries |
 
-Selectors retain selected values when the form refreshes. Confirming save uses a settings revision guard. After saving, reopen the panel before a second change. A stale form cannot overwrite newer settings.
+Selectors retain selected values when the form refreshes. Confirming save uses a settings revision guard. Saving returns a fresh setup form for the next change. A stale form cannot overwrite newer settings.
 
 Settings pages show at most 25 paths. Values are typed: text stays text, role IDs/lists and structured values use JSON. Unknown fields, duplicate IDs, malformed URLs, contradictory rules, invalid ranges and non-integer numeric values are rejected. A value over Discord's form limit requires file import, never silent truncation.
 

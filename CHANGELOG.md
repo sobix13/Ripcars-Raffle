@@ -1,3 +1,10 @@
+# 1.1.0
+
+- Guided role-only raffles, editable additive ticket defaults, one fixed entry role and auditable manual grants.
+- Concise persistent public panels; result approval or automatic publication; post-publication role cleanup and manual controls.
+- Paginated history, participant exports and recovery for uncertain result delivery.
+- Additive migration; historical hashes and legacy weight semantics preserved.
+
 # Changelog
 
 ## 1.0.1
