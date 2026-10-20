@@ -61,7 +61,7 @@ class UITests(AsyncCase):
         self.assertEqual((await self.bot.db.get(1,r["id"]))["contract_hash"],r["contract_hash"])
     async def test_public_buttons_are_persistent_and_namespaced(self):
         r=await self.published();view=public_view(r,self.cfg)
-        self.assertTrue(view.is_persistent());self.assertEqual(len(view.children),5)
+        self.assertTrue(view.is_persistent());self.assertEqual(len(view.children),3)
         self.assertTrue(all(x.item.custom_id.startswith("rcr:raffle:") for x in view.children))
     async def test_dynamic_button_reconstructs_after_restart(self):
         item=discord.ui.Button(label="Join raffle",custom_id="rcr:raffle:7:join")
@@ -95,13 +95,13 @@ class UITests(AsyncCase):
         self.assertNotIn("Private exception detail",str(i.followup.send.call_args));self.assertIn("RCR-",str(i.followup.send.call_args))
     async def test_cancelled_buttons_disabled(self):
         r=await self.published();r["status"]="cancelled";view=public_view(r,self.cfg)
-        self.assertTrue(view.children[0].item.disabled);self.assertTrue(view.children[4].item.disabled)
+        self.assertTrue(view.children[0].item.disabled);self.assertNotIn('claim',[x.action for x in view.children])
     async def test_embed_limits_at_maximum_input(self):
         r=await self.draw_members(25);r["spec"].update(title="T"*100,prize="P"*400,description="D"*1200)
         r["spec"]["rules"].update(any_roles=list(range(10**17,10**17+20)),all_roles=list(range(10**18,10**18+20)),weights={str(n):100 for n in range(10**17,10**17+20)})
         cfg=copy.deepcopy(self.cfg);cfg["texts"]["entry_notice"]="N"*500
         embed=panel_embed(r,cfg,100000)
-        self.assertLessEqual(len(embed),6000);self.assertTrue(all(len(x.value)<=1024 for x in embed.fields));self.assertIn("Full role lists",embed.fields[1].value)
+        self.assertLessEqual(len(embed),6000);self.assertTrue(all(len(x.value)<=1024 for x in embed.fields));self.assertNotIn('Seed commitment',[x.name for x in embed.fields])
     async def test_concurrent_join_leaves_panel_dirty_for_next_refresh(self):
         r=await self.published();msg=self.guild.public.messages[r["message"]];original=msg.edit
         async def during(**kwargs):

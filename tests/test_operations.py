@@ -3,7 +3,9 @@ import gzip
 import json
 import os
 import sqlite3
-from unittest.mock import patch
+import time
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from ripcars_raffle import operations
 from tests.fakes import AsyncCase,Channel,failure,interaction
@@ -76,6 +78,19 @@ class OperationsTests(AsyncCase):
         target=None
         for _ in range(4):target=await operations.backup(self.bot.db,self.root/"backups",2)
         self.assertEqual(len(list((self.root/"backups").glob("*.sqlite3"))),2);self.assertEqual(os.stat(target).st_mode&0o777,0o600)
+        with sqlite3.connect(target) as c:self.assertEqual(c.execute("PRAGMA integrity_check").fetchone()[0],"ok")
+    async def test_backup_retention_preserves_newest_across_second_boundary(self):
+        second=1792416405
+        clock=SimpleNamespace(
+            strftime=time.strftime,
+            gmtime=lambda stamp=None: time.gmtime(second if stamp is None else stamp),
+            time_ns=Mock(side_effect=[second*10**9+800000000,second*10**9+900000000,(second+1)*10**9+279508]),
+        )
+        with patch.object(operations,"time",clock):
+            for _ in range(3):
+                target=await operations.backup(self.bot.db,self.root/"backups",2)
+                self.assertTrue(target.exists(),"Retention deleted the newly created backup")
+        self.assertEqual(len(list((self.root/"backups").glob("*.sqlite3"))),2)
         with sqlite3.connect(target) as c:self.assertEqual(c.execute("PRAGMA integrity_check").fetchone()[0],"ok")
     async def test_health_schema_and_private_data(self):
         result=await operations.health(self.bot,self.guild)

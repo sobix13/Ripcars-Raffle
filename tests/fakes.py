@@ -82,6 +82,7 @@ class Guild(discord.Guild):
     def add_member(self,uid,roles=None,bot=False,joined_days=100):
         m=discord.Member(data={"user":{"id":str(uid),"username":f"member{uid}","discriminator":"0","avatar":None,"bot":bot,"global_name":None,"public_flags":0},"roles":[str(r) for r in (roles or [])],"joined_at":(datetime.now(timezone.utc)-timedelta(days=joined_days)).isoformat(),"deaf":False,"mute":False,"flags":0},guild=self,state=self._state)
         self._members[uid]=m
+        self._member_count=len(self._members)
         return m
 
     async def fetch_member(self,uid):

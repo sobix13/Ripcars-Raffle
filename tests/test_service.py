@@ -21,6 +21,29 @@ class ServiceTests(AsyncCase):
         return r
     async def save_cfg(self,**updates):
         cfg,rev=await self.bot.db.settings(1);cfg.update(updates);await self.bot.db.save(1,cfg,rev,9001)
+    async def test_edit_after_validation_cannot_publish_unreviewed_prize(self):
+        rid=await self.draft()
+        original=self.bot.db.begin_publish
+        async def race(*args,**kwargs):
+            draft=await self.bot.db.get(1,rid)
+            draft["spec"]["prize"]="Describe the prize"
+            await self.bot.db.edit(1,rid,draft["spec"],draft["revision"],9001)
+            return await original(*args,**kwargs)
+        self.bot.db.begin_publish=race
+        with self.assertRaises(Conflict): await self.bot.raffles.publish(self.guild,rid,9001)
+        self.assertEqual(self.guild.public.sent,[])
+        self.assertEqual((await self.bot.db.get(1,rid))["status"],"draft")
+
+    async def test_pause_after_validation_cannot_publish(self):
+        rid=await self.draft()
+        original=self.bot.db.begin_publish
+        async def race(*args,**kwargs):
+            await self.save_cfg(enabled=False)
+            return await original(*args,**kwargs)
+        self.bot.db.begin_publish=race
+        with self.assertRaises(Conflict): await self.bot.raffles.publish(self.guild,rid,9001)
+        self.assertEqual(self.guild.public.sent,[])
+
     async def test_publish_owned_panel_enables_join(self):
         r=await self.published();msg=self.guild.public.messages[r["message"]]
         self.assertFalse(msg.view.children[0].item.disabled)
@@ -66,7 +89,7 @@ class ServiceTests(AsyncCase):
         self.assertIn(1000,self.guild.fetches)
     async def test_join_pause_does_not_hide_status_or_leave(self):
         r=await self.fill(1);await self.save_cfg(enabled=False)
-        self.assertTrue((await self.click(r,1000,"status"))["entry"])
+        self.assertIn("entered",await self.click(r,1000,"status"))
         await self.click(r,1000,"leave")
         with self.assertRaises(ValueError):await self.click(r,1000)
     async def test_copied_button_message_is_rejected(self):
@@ -75,7 +98,7 @@ class ServiceTests(AsyncCase):
         with self.assertRaises(ValueError):await self.bot.raffles.member_action(interaction(self.bot,self.guild,self.guild.get_member(1000),fake),r["id"],"join")
     async def test_rules_do_not_reveal_seed(self):
         r=await self.fill(1);rules=await self.click(r,1000,"rules")
-        self.assertNotIn(r["seed"],str(rules));self.assertEqual(rules["contract_hash"],r["contract_hash"])
+        self.assertNotIn(r["seed"],str(rules));self.assertIn(r["contract_hash"],rules)
     async def test_weight_checked_at_draw_time(self):
         r=await self.fill(2,{"weights":{"11":7}})
         self.guild.add_member(1000,[10,11])

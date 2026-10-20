@@ -25,7 +25,7 @@ class DrawingTests(unittest.TestCase):
     def test_duplicate_users_rejected(self):
         with self.assertRaises(ValueError):drawing.select(self.seed,"x",self.pool+[self.pool[0]],1)
     def test_bad_weights_and_ids_rejected(self):
-        for p in ({"user":10,"weight":0},{"user":10,"weight":True},{"user":False,"weight":1},{"user":10,"weight":101}):
+        for p in ({"user":10,"weight":0},{"user":10,"weight":True},{"user":False,"weight":1},{"user":10,"weight":2001}):
             with self.assertRaises(ValueError):drawing.select(self.seed,"x",[p],1)
     def test_invalid_winner_count(self):
         for count in (-1,26,True):
