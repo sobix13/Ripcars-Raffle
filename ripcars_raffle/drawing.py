@@ -28,7 +28,7 @@ def select(seed, context, pool, count):
     key = seed_bytes(seed)
     if type(count) is not int or not 0 <= count <= 25:
         raise ValueError("Winner count must be 0–25.")
-    if not isinstance(pool, list) or any(not isinstance(p, dict) or set(p) != {"user", "weight"} or not ident(p["user"]) or type(p["weight"]) is not int or not 1 <= p["weight"] <= 100 for p in pool):
+    if not isinstance(pool, list) or any(not isinstance(p, dict) or set(p) != {"user", "weight"} or not ident(p["user"]) or type(p["weight"]) is not int or not 1 <= p["weight"] <= 2000 for p in pool):
         raise ValueError("Invalid weighted pool.")
     if len({p["user"] for p in pool}) != len(pool):
         raise ValueError("Duplicate member in weighted pool.")

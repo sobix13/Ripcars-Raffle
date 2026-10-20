@@ -97,21 +97,41 @@ class Setup(SafeView):
         button = discord.ui.Button(label="Review & save", row=4, style=discord.ButtonStyle.primary)
         async def review(i):
             async def save(j):
-                await checked_save(bot, j.guild, self.cfg, revision, j.user.id)
-                await reply(j, "Setup saved. Run /raffle doctor, then enable raffles in Quick setup.")
+                await bot.raffles.setup(j.guild, self.cfg, revision, j.user.id)
+                fresh,rev=await bot.db.settings(j.guild_id)
+                await reply(j,"Setup saved. Your Raffle role is ready. Activate entries when the checks pass.",view=Setup(bot,user,fresh,rev))
             details = {k:self.cfg[k] for k in ("member_role","manager_roles","channel","log_channel")}
-            await reply(i, "Review the selected IDs. No role or channel permissions will be changed.", file=attachment("raffle-setup.json", details), view=Confirm(bot,user,save,"Save setup",True))
+            summary='\n'.join(f"{k.replace('_',' ').title()}: "+(', '.join(f'<@&{x}>' for x in v) or 'Server admins' if isinstance(v,list) else f'<@&{v}>' if 'role' in k else f'<#{v}>') for k,v in details.items())
+            await reply(i,summary+'\nA separate zero-permission Raffle role will be created if not configured.',view=Confirm(bot,user,save,"Save setup",True))
         button.callback = review
         self.add_item(button)
         activate = discord.ui.Button(label="Activate / pause new entries", row=4)
         async def toggle(i):
+            if not self.cfg.get('raffle_role'):
+                return await reply(i,'Save Quick setup first to create or choose the Raffle entry role.')
             candidate = copy.deepcopy(self.cfg)
             candidate["enabled"] = not candidate["enabled"]
             async def save(j):
                 await checked_save(bot,j.guild,candidate,revision,j.user.id)
-                await reply(j,f"New entries enabled: {candidate['enabled']}. Existing raffles still close and draw at their recorded deadlines.")
-            await reply(i,"Confirm activation/pause and the selected setup IDs. Existing draw deadlines remain unchanged.",file=attachment("activation-settings.json",candidate),view=Confirm(bot,user,save,"Save activation",True))
+                fresh,rev=await bot.db.settings(j.guild_id)
+                await reply(j,f"Entries are {'active' if candidate['enabled'] else 'paused'}.",view=Setup(bot,user,fresh,rev))
+            await reply(i,"Confirm: "+('activate new entries.' if candidate['enabled'] else 'pause new entries.')+" Existing raffle deadlines stay the same.",view=Confirm(bot,user,save,"Save activation",True))
         activate.callback=toggle;self.add_item(activate)
+        bind=discord.ui.Button(label='Use existing Raffle role',row=4)
+        async def bind_role(i):
+            view=SafeView(bot,user,True)
+            menu=discord.ui.RoleSelect(placeholder='Choose a separate Raffle entry role',min_values=1,max_values=1)
+            async def choose(j):
+                self.cfg['raffle_role']=menu.values[0].id
+                await j.response.edit_message(content='Raffle role selected. Review and save.',view=Setup(bot,user,self.cfg,revision))
+            menu.callback=choose;view.add_item(menu)
+            await reply(i,'Choose an existing zero-permission entry role.',view=view)
+        bind.callback=bind_role;self.add_item(bind)
+        back=discord.ui.Button(label='Home',row=4)
+        async def home(i):
+            from .guided_ui import Home
+            await reply(i,'Raffle dashboard',view=Home(bot,user))
+        back.callback=home;self.add_item(back)
 
 
 def paths(node, prefix=""):
@@ -175,14 +195,15 @@ class DraftDetails(SafeModal):
         super().__init__(bot,user,"Raffle details")
         self.category,self.r=category,r
         spec=r["spec"] if r else initial or config.DEFAULTS["templates"][category]
+        self.initial=copy.deepcopy(spec)
         for key,label,limit in (("title","Raffle title",100),("prize","Prize description",400),("description","Public details",1200),("duration","Duration, e.g. 24h or 3d",20),("winners","Number of winners: 1 to 25",2)):
             f=discord.ui.TextInput(label=label,default=str(spec[key]),max_length=limit,required=key!="description",style=discord.TextStyle.paragraph if key in ("prize","description") else discord.TextStyle.short)
             setattr(self,"field_"+key,f);self.add_item(f)
 
     async def on_submit(self,i):
         await i.response.defer(ephemeral=True)
-        cfg=await self.check(i)
-        spec=copy.deepcopy(self.r["spec"] if self.r else cfg["templates"][self.category])
+        await self.check(i)
+        spec=copy.deepcopy(self.r["spec"] if self.r else self.initial)
         for k in ("title","prize","description"):
             spec[k]=getattr(self,"field_"+k).value.strip()
         spec["duration"]=config.duration(self.field_duration.value)
@@ -192,7 +213,7 @@ class DraftDetails(SafeModal):
             rid=self.r["id"]
             await self.bot.db.edit(i.guild_id,rid,spec,self.r["revision"],i.user.id)
         else:
-            rid=await self.bot.db.create(i.guild_id,i.user.id,self.category,spec)
+            rid=await self.bot.db.create(i.guild_id,i.user.id,self.category,spec,result_mode='review' if (await self.bot.db.settings(i.guild_id))[0].get('raffle_role') else 'auto')
         await show_raffle(self.bot,i,rid)
 
 
@@ -265,7 +286,7 @@ class Manage(SafeView):
                 else:
                     async def run(j):
                         if label=="Publish":
-                            await bot.raffles.publish(j.guild,r["id"],j.user.id)
+                            await bot.raffles.publish(j.guild,r["id"],j.user.id,draft_revision=latest['revision'])
                         elif label=="End now":
                             await bot.db.freeze(j.guild_id,r["id"],j.user.id,"Manager ended early from the panel")
                             bot.raffles.enqueue(j.guild,r["id"])
@@ -292,8 +313,12 @@ async def show_raffle(bot,i,rid):
     r=await bot.raffles.inspect(i.guild,rid,i.user,True)
     cfg,_=await bot.db.settings(i.guild_id)
     counts=await bot.db.query("SELECT COUNT(*) AS n FROM entries WHERE raffle=? AND active=1",(rid,))
-    summary=f"#{rid} · {r['category']} · {r['status']}\nPrize: {r['spec']['prize']}\nEntries: {counts[0]['n']}\nPanel: {r['display_state']}\nUse /raffle award for delivery, /raffle audit for proof, /raffle entries for CSV."
-    await reply(i,embed=discord.Embed(title=r["spec"]["title"],description=summary,color=cfg["color"]),view=Manage(bot,i.user.id,r))
+    summary=f"Raffle #{rid}: {r['status']}\nPrize: {r['spec']['prize']}\nParticipants: {counts[0]['n']}\nUse the controls below to review, publish or manage this raffle."
+    if r.get('entry_role'):
+        role=i.guild.get_role(r['entry_role'])
+        summary+=f"\nCurrent Raffle role holders: {len(role.members) if role else 0}\nResults: {'automatic' if r['result_mode']=='auto' else 'admin approval'}"
+    from .guided_ui import RaffleActions
+    await reply(i,embed=discord.Embed(title=r["spec"]["title"],description=summary,color=cfg["color"]),view=RaffleActions(bot,i.user.id,r))
 
 
 class Hub(SafeView):
@@ -365,4 +390,5 @@ async def panel(bot,i):
     cfg=await authorized(bot,i)
     embed=discord.Embed(title=cfg["texts"]["title"]+" · Admin",description=cfg["texts"]["intro"]+f"\nNew entries enabled: {cfg['enabled']}",color=cfg["color"])
     embed.set_footer(text=cfg["brand"])
-    await reply(i,embed=embed,view=Hub(bot,i.user.id))
+    from .guided_ui import Home
+    await reply(i,embed=embed,view=Home(bot,i.user.id))

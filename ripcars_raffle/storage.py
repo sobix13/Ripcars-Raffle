@@ -27,13 +27,19 @@ CREATE TABLE IF NOT EXISTS raffles(id INTEGER PRIMARY KEY,guild INTEGER NOT NULL
  frozen TEXT,rounds TEXT NOT NULL DEFAULT '[]',excluded TEXT NOT NULL DEFAULT '[]',paused INTEGER NOT NULL DEFAULT 0,
  dirty INTEGER NOT NULL DEFAULT 1,last_update REAL NOT NULL DEFAULT 0,attempts INTEGER NOT NULL DEFAULT 0,retry_at REAL NOT NULL DEFAULT 0,
  error TEXT NOT NULL DEFAULT '',claim_until REAL NOT NULL DEFAULT 0,
- display_state TEXT NOT NULL DEFAULT 'unbound',display_attempts INTEGER NOT NULL DEFAULT 0,display_retry REAL NOT NULL DEFAULT 0);
+ display_state TEXT NOT NULL DEFAULT 'unbound',display_attempts INTEGER NOT NULL DEFAULT 0,display_retry REAL NOT NULL DEFAULT 0,
+ entry_role INTEGER NOT NULL DEFAULT 0,cleanup_done INTEGER NOT NULL DEFAULT 0,
+ result_mode TEXT NOT NULL DEFAULT 'auto',result_approved INTEGER NOT NULL DEFAULT 0,
+ result_state TEXT NOT NULL DEFAULT 'pending',result_message INTEGER NOT NULL DEFAULT 0,cleanup_requested INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS raffles_guild_state ON raffles(guild,status);
 CREATE TABLE IF NOT EXISTS entries(raffle INTEGER NOT NULL,user INTEGER NOT NULL,joined REAL NOT NULL,active INTEGER NOT NULL,PRIMARY KEY(raffle,user));
 CREATE TABLE IF NOT EXISTS exclusions(raffle INTEGER,user INTEGER,reason TEXT,actor INTEGER,at REAL,PRIMARY KEY(raffle,user));
 CREATE TABLE IF NOT EXISTS awards(raffle INTEGER,round INTEGER,user INTEGER,status TEXT NOT NULL,at REAL,note TEXT NOT NULL DEFAULT '',PRIMARY KEY(raffle,round,user));
 CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,guild INTEGER,actor INTEGER,action TEXT,detail TEXT,at REAL);
 CREATE TABLE IF NOT EXISTS locks(raffle INTEGER,job TEXT,token TEXT,expires REAL,PRIMARY KEY(raffle,job));
+CREATE TABLE IF NOT EXISTS entry_approvals(raffle INTEGER,user INTEGER,method TEXT,actor INTEGER,at REAL,PRIMARY KEY(raffle,user));
+CREATE TABLE IF NOT EXISTS role_changes(raffle INTEGER,user INTEGER,desired INTEGER,pending INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(raffle,user));
+CREATE TABLE IF NOT EXISTS audit_cursors(guild INTEGER PRIMARY KEY,event INTEGER NOT NULL);
 """
 
 
@@ -97,6 +103,21 @@ def decode(row):
 class Store(SQLite):
     async def open(self):
         await self.initialize(SCHEMA)
+        def migrate(c):
+            if "entry_role" not in {r[1] for r in c.execute("PRAGMA table_info(raffles)")}:
+                c.execute("ALTER TABLE raffles ADD COLUMN entry_role INTEGER NOT NULL DEFAULT 0")
+            if "cleanup_done" not in {r[1] for r in c.execute("PRAGMA table_info(raffles)")}:
+                c.execute("ALTER TABLE raffles ADD COLUMN cleanup_done INTEGER NOT NULL DEFAULT 0")
+            columns={r[1] for r in c.execute('PRAGMA table_info(raffles)')}
+            for name,definition in [('result_mode',"TEXT NOT NULL DEFAULT 'auto'"),('result_approved','INTEGER NOT NULL DEFAULT 0'),('result_state',"TEXT NOT NULL DEFAULT 'pending'"),('result_message','INTEGER NOT NULL DEFAULT 0'),('cleanup_requested','INTEGER NOT NULL DEFAULT 0')]:
+                if name not in columns:c.execute(f'ALTER TABLE raffles ADD COLUMN {name} {definition}')
+            if 'result_state' not in columns:
+                c.execute("UPDATE raffles SET result_state='legacy' WHERE status='drawn'")
+            for row in c.execute("SELECT guild,data FROM settings").fetchall():
+                cfg=json.loads(row["data"])
+                cfg.setdefault("raffle_role",0);cfg.setdefault("role_tickets",{})
+                c.execute("UPDATE settings SET data=? WHERE guild=?",(config.canonical(cfg),row["guild"]))
+        await self.run(migrate)
         os.chmod(self.path,0o600)
 
     async def settings(self, guild):
@@ -125,12 +146,14 @@ class Store(SQLite):
     async def audit(self, guild, actor, action, detail):
         await self.run(lambda c: self._audit(c, guild, actor, action, detail))
 
-    async def create(self, guild, actor, category, spec):
+    async def create(self, guild, actor, category, spec, *, result_mode='auto'):
         if category not in config.CATEGORIES:
             raise ValueError("Unknown campaign category.")
         config.validate_spec(spec)
+        if result_mode not in ('auto','review'):raise ValueError('Choose automatic results or admin approval.')
         def add(c):
             rid = c.execute("INSERT INTO raffles(guild,actor,category,spec,created) VALUES(?,?,?,?,?)", (guild, actor, category, config.canonical(spec), time.time())).lastrowid
+            c.execute('UPDATE raffles SET result_mode=? WHERE id=?',(result_mode,rid))
             self._audit(c, guild, actor, "draft_created", f"raffle={rid}; category={category}")
             return rid
         return await self.run(add)
@@ -149,14 +172,20 @@ class Store(SQLite):
             self._audit(c, guild, actor, "draft_edited", f"raffle={rid}")
         await self.run(update)
 
-    async def begin_publish(self, guild, rid, channel, cfg, actor, now=None):
+    async def begin_publish(self, guild, rid, channel, cfg, actor, now=None, *, draft_revision=None, settings_revision=None):
         now = time.time() if now is None else now
         def begin(c):
             row = decode(c.execute("SELECT * FROM raffles WHERE guild=? AND id=?", (guild, rid)).fetchone())
             if not row or row["status"] != "draft":
                 raise Conflict("Only an unpublished draft can be published.")
+            if draft_revision is not None and row["revision"] != draft_revision:
+                raise Conflict("Draft changed during publication. Review it again.")
+            if settings_revision is not None:
+                settings = c.execute("SELECT revision FROM settings WHERE guild=?", (guild,)).fetchone()
+                if (settings["revision"] if settings else 0) != settings_revision:
+                    raise Conflict("Settings changed during publication. Reopen the panel.")
             active = c.execute("SELECT COUNT(*) FROM raffles WHERE guild=? AND status IN ('publishing','scheduled','open','closing','review')", (guild,)).fetchone()[0]
-            if active >= cfg["max_active"]:
+            if active >= (1 if cfg.get("raffle_role") else cfg["max_active"]):
                 raise ValueError("The active raffle limit has been reached.")
             start = now + row["spec"]["starts_in"]
             end = start + row["spec"]["duration"]
@@ -164,7 +193,11 @@ class Store(SQLite):
             contract = {"id": rid, "guild": guild, "channel": channel, "category": row["category"], "spec": row["spec"],
                         "starts": start, "ends": end, "member_role": cfg["member_role"], "entry_limit": cfg["max_entries"],
                         "server_policy": "Current server account blocklist and raffle-manager staff exclusions apply at entry and draw."}
+            if cfg.get("raffle_role"):
+                contract["entry_role"]=cfg["raffle_role"]
+                contract['result_mode']=row['result_mode']
             c.execute("UPDATE raffles SET status='publishing',channel=?,starts=?,ends=?,seed=?,commitment=?,contract=?,contract_hash=?,member_role=?,entry_limit=?,revision=revision+1 WHERE id=?", (channel, start, end, seed, drawing.commitment(seed), config.canonical(contract), drawing.digest(contract), cfg["member_role"], cfg["max_entries"], rid))
+            c.execute("UPDATE raffles SET entry_role=? WHERE id=?",(cfg.get("raffle_role",0),rid))
             self._audit(c, guild, actor, "publish_started", f"raffle={rid}")
         await self.run(begin)
         return await self.get(guild, rid)
@@ -180,7 +213,7 @@ class Store(SQLite):
             self._audit(c, guild, 0, "published", f"raffle={rid}; message={message}")
         await self.run(bind)
 
-    async def enter(self, guild, rid, user, now=None):
+    async def enter(self, guild, rid, user, now=None, *, method="button", actor=0):
         now = time.time() if now is None else now
         def add(c):
             r = c.execute("SELECT * FROM raffles WHERE guild=? AND id=?", (guild, rid)).fetchone()
@@ -194,6 +227,9 @@ class Store(SQLite):
             if c.execute("SELECT COUNT(*) FROM entries WHERE raffle=? AND active=1", (rid,)).fetchone()[0] >= r["entry_limit"]:
                 raise ValueError("This raffle has reached its entry limit.")
             c.execute("INSERT INTO entries VALUES(?,?,?,1) ON CONFLICT(raffle,user) DO UPDATE SET joined=excluded.joined,active=1", (rid, user, now))
+            c.execute("INSERT OR REPLACE INTO entry_approvals VALUES(?,?,?,?,?)",(rid,user,method,actor,now))
+            if r["entry_role"]:
+                c.execute("INSERT OR REPLACE INTO role_changes VALUES(?,?,1,1)",(rid,user))
             c.execute("UPDATE raffles SET dirty=1,revision=revision+1 WHERE id=?", (rid,))
             return True
         return await self.run(add)
@@ -205,6 +241,8 @@ class Store(SQLite):
             if not r or r["status"] not in ("scheduled", "open") or now >= r["ends"]:
                 raise ValueError("The entry snapshot has closed.")
             changed = c.execute("UPDATE entries SET active=0 WHERE raffle=? AND user=? AND active=1", (rid, user)).rowcount
+            if changed and r["entry_role"]:
+                c.execute("INSERT OR REPLACE INTO role_changes VALUES(?,?,0,1)",(rid,user))
             c.execute("UPDATE raffles SET dirty=1,revision=revision+1 WHERE id=?", (rid,))
             return bool(changed)
         return await self.run(remove)
@@ -258,6 +296,8 @@ class Store(SQLite):
             r = c.execute("SELECT * FROM raffles WHERE guild=? AND id=?", (guild, rid)).fetchone()
             if not r or r["status"] != "drawn":
                 raise ValueError("Winners haven't been drawn.")
+            if r['entry_role'] and r['result_state'] not in ('published','legacy'):
+                raise ValueError('The results have not been published yet.')
             row = c.execute("SELECT * FROM awards WHERE raffle=? AND user=? ORDER BY round DESC LIMIT 1", (rid, user)).fetchone()
             if not row or row["status"] not in ("pending", "claimed", "delivered"):
                 raise ValueError("You don't have an active prize in this raffle.")
@@ -378,6 +418,8 @@ class Store(SQLite):
         r = await self.get(guild, rid)
         if r["status"] != "drawn":
             raise ValueError("The seed is revealed only after the draw completes.")
+        if r.get('entry_role') and r['result_state'] not in ('published','legacy'):
+            raise ValueError('The results have not been published yet.')
         return {"algorithm": drawing.ALGORITHM, "commitment": r["commitment"], "seed": r["seed"],
                 "contract": r["contract"], "contract_hash": r["contract_hash"], "rounds": r["rounds"],
                 "eligibility_checks": r["excluded"], "frozen_entries": r["frozen"]}

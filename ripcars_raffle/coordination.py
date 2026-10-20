@@ -54,3 +54,17 @@ class Registry(SQLite):
 
     async def self_claim_roles(self, guild):
         return {r["object_id"] for k, r in (await self.resources(guild)).items() if k.startswith("role:claim_")}
+
+    async def record_role(self,guild,role,bot_id):
+        async with self.lease(guild) as token:
+            def put(c):
+                protocol.ensure(c,guild,'server-setup',token,error=Conflict)
+                key=f"raffle:entry-role:{bot_id}";owner=f"bot:{bot_id}"
+                old=c.execute("SELECT * FROM resources WHERE guild=? AND object_id=?",(guild,role)).fetchone()
+                if old and (old['key']!=key or old['owner']!=owner or old['state']!='active'):
+                    raise Conflict("This role belongs to another controller or needs review.")
+                current=c.execute("SELECT * FROM resources WHERE guild=? AND key=?",(guild,key)).fetchone()
+                if current and current['object_id']!=role:
+                    raise Conflict("The saved Raffle role changed. Review the existing binding first.")
+                c.execute("INSERT OR IGNORE INTO resources VALUES(?,?,?,'role',?,'{}','{}','active')",(guild,key,role,owner))
+            await self.run(put)

@@ -25,5 +25,9 @@ def check(member, rule, member_role, blocked_users=(), now=None, manager_roles=(
     if rule["server_days"] and (member.joined_at is None or now - member.joined_at.timestamp() < rule["server_days"] * 86400):
         return False, "You haven't been in the server long enough for this raffle.", 0
     weights = [v for k, v in rule["weights"].items() if int(k) in role_ids]
-    weight = max([1, *weights]) if rule["weight_mode"] == "max" else 1 + sum(v - 1 for v in weights)
+    if rule["weight_mode"] == "tickets":
+        weight = sum(weights) or 1
+    else:
+        # Published legacy raffles keep their original bonus arithmetic.
+        weight = max([1, *weights]) if rule["weight_mode"] == "max" else 1 + sum(v - 1 for v in weights)
     return True, "Eligible", min(weight, rule["weight_cap"])

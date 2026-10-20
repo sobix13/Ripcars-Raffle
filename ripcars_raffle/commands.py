@@ -37,7 +37,7 @@ class Commands(commands.Cog):
         await authorized(self.bot,i,True)
         from .admin_ui import Setup
         cfg,rev=await self.bot.db.settings(i.guild_id)
-        await reply(i,"Pick existing IDs. This bot never builds or changes roles/channels.",view=Setup(self.bot,i.user.id,cfg,rev))
+        await reply(i,"Choose your existing channels and member roles. Saving creates or reuses one fixed Raffle entry role.",view=Setup(self.bot,i.user.id,cfg,rev))
 
     @raffle.command(name="create",description="Create a private draft from a campaign template")
     @app_commands.choices(category=[app_commands.Choice(name=k.title(),value=k) for k in config.CATEGORIES])

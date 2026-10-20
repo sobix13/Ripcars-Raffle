@@ -66,6 +66,13 @@ async def doctor(bot, guild, cfg=None):
         blockers.append("Select the ordinary Rippers member role.")
     if not bot.intents.members:
         blockers.append("Server Members Intent is required.")
+    if cfg.get('raffle_role'):
+        try:
+            bot.raffles.entry_role(guild,cfg['raffle_role'])
+        except ValueError as exc:
+            blockers.append(str(exc))
+        if not guild.me.guild_permissions.view_audit_log:
+            blockers.append('Enable View Audit Log so manual Raffle role grants can be registered.')
     for key in ("channel", "log_channel"):
         try:
             ch = text_channel(guild, cfg[key])
@@ -80,7 +87,7 @@ async def doctor(bot, guild, cfg=None):
         if not guild.get_role(role_id):
             blockers.append(f"Manager role {role_id} is missing.")
     if guild.me.guild_permissions.administrator:
-        notes.append("Administrator is unnecessary. Raffle needs no role, channel, ban, or message-management permissions.")
+        notes.append("Administrator is unnecessary. The shared entry role uses Manage Roles and View Audit Log; no channel, ban or message-management permissions are needed.")
     notes.append("Eligibility uses Discord roles, not live wallet balances, platform points, message counts, or X likes.")
     rows = await bot.db.query("SELECT id,status,display_state FROM raffles WHERE guild=? AND (status IN ('publishing','review') OR display_state IN ('missing','review'))", (guild.id,))
     notes.extend(f"Raffle #{r['id']}: {r['status']}; panel={r['display_state']} needs review." for r in rows)
@@ -159,7 +166,8 @@ class Reporter:
 async def backup(db, root, keep):
     path = Path(root)
     path.mkdir(parents=True, exist_ok=True)
-    target = path / ("raffle-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime()) + f"-{time.time_ns()%1000000000:09d}.sqlite3")
+    stamp = time.time_ns()
+    target = path / ("raffle-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime(stamp//1000000000)) + f"-{stamp%1000000000:09d}.sqlite3")
     def write():
         with sqlite3.connect(db.path) as source, sqlite3.connect(target) as dest:
             source.backup(dest)
